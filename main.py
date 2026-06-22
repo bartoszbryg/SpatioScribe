@@ -32,9 +32,6 @@ def parse_args():
 
 def main():
     args = parse_args()
-    log = setup_logger()  
-
-
     if not os.path.exists(args.video):
         print("Video file not found:", args.video)
         return 1
@@ -126,6 +123,7 @@ def main():
     print("Done. Output video:", out_video_path)
     print("JSON results:", out_json_path)
     print("Description file:", log_file_path)
+    return 0
 
 
 if __name__ == "__main__":

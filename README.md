@@ -1,13 +1,13 @@
-# ComputerVision-VideoUnderstanding
+# SpatioScribe
 
 ## Overview
-This project is a computer vision system that detects, tracks, and describes objects in video.
+SpatioScribe is a computer vision pipeline that detects, tracks, and narrates objects across video frames.
 
 It combines:
-- YOLOv8 for object detection
-- DeepSORT for multi-object tracking
-- BLIP for image captioning
-- Motion analysis using object history
+- YOLOv8 for convolutional object detection
+- DeepSORT for persistent multi-object tracking
+- BLIP for vision-language scene captioning
+- Motion analysis using per-object spatiotemporal history
 
 **Track:** Computer Vision
 

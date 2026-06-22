@@ -3,22 +3,11 @@ import torch
 from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
+from utils import normalize_caption
+
 processor = None
 model = None
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
-
-def normalize_caption(caption):
-    replacements = {
-        "man": "person",
-        "woman": "person",
-        "boy": "kid",
-        "girl": "kid"
-    }
-
-    words = caption.split()
-    normalized = [replacements.get(w.lower(), w) for w in words]
-    return " ".join(normalized)
 
 
 # Load Blip Processor and train it with already pretrained data using Salesforce

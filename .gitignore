@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# SpatioScribe
+*.pt
+*.onnx
+output/
+input.mp4
+*.mp4
+!demos/*.mp4

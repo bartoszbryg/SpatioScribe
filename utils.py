@@ -29,8 +29,18 @@ def save_json(data, path):
         json.dump(data, file, indent=2)
 
 
+def normalize_caption(caption):
+    replacements = {
+        "man": "person", 
+        "woman": "person", 
+        "boy": "kid", 
+        "girl": "kid"
+    }
+    return " ".join(replacements.get(w.lower(), w) for w in caption.split())
+
+
 def make_frame_entry(frame_idx, timestamp, tracks):
-    objects = {}
+    objects = []
     for object in tracks:
         objects.append({
             "id": object["id"],
@@ -40,5 +50,5 @@ def make_frame_entry(frame_idx, timestamp, tracks):
     return {
         "frame": frame_idx,
         "timestamp": timestamp,
-        "objects": [objects]
+        "objects": objects
     }

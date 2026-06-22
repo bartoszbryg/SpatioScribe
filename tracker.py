@@ -1,3 +1,5 @@
+from collections import deque
+
 from deep_sort_realtime.deepsort_tracker import DeepSort
 
 
@@ -81,9 +83,6 @@ def update_tracks(detections, frame):
 
     # Convert detections to DeepSORT format
     for det in detections:
-        if det["confidence"] < CONFIDENCE_THRESHOLD:
-            continue
-
         x1, y1, x2, y2 = det["bbox"]
         w = x2 - x1
         h = y2 - y1
@@ -106,16 +105,13 @@ def update_tracks(detections, frame):
         x1, y1, x2, y2 = map(int, t.to_ltrb())
         label = t.get_det_class()
 
-        change_in_x = (x1 + x2) // 2
-        change_in_y = (y1 + y2) // 2
+        center_x = (x1 + x2) // 2
+        center_y = (y1 + y2) // 2
 
         if track_id not in history:
-            history[track_id] = []
+            history[track_id] = deque(maxlen=HISTORY_LENGTH)
 
-        history[track_id].append((change_in_x, change_in_y))
-
-        if len(history[track_id]) > HISTORY_LENGTH:
-            history[track_id].pop(0)
+        history[track_id].append((center_x, center_y))
 
         results.append({
             "id": track_id,

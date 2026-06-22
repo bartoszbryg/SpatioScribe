@@ -6,7 +6,7 @@ TARGET_LABELS = {"person", "car", "bicycle", "airplane", "train", "truck", "moto
 model = None
 
 
-DEFAULT_YOLO_WEIGHTS = "yolov8s.pt"
+DEFAULT_YOLO_WEIGHTS = "yolov8n.pt"
 
 def load_model(weights = DEFAULT_YOLO_WEIGHTS):
     global model
