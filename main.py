@@ -14,7 +14,7 @@ from utils import frame_to_seconds, make_frame_entry, save_json, setup_logger
 
 DEFAULT_VIDEO = "input.mp4"
 DEFAULT_CAPTION_EVERY = 30   # generate a BLIP caption every N frames
-DEFAULT_YOLO_WEIGHTS = "yolov8n.pt"
+DEFAULT_YOLO_WEIGHTS = "yolo26n.pt"
 
 
 def parse_args():
