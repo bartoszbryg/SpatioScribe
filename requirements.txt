@@ -1,6 +1,7 @@
 opencv-python
 ultralytics
 deep-sort-realtime
+setuptools<81
 torch
 torchvision
 transformers
