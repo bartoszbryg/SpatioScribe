@@ -39,13 +39,6 @@ MAX_COSINE_DISTANCE = 0.3
 NMS_MAX_OVERLAP = 1.0
 
 
-# Minimum confidence for detections from YOLO.
-# Removes weak/noisy detections before tracking.
-# Too LOW - noisy boxes, unstable tracking
-# Too HIGH - missing real objects
-CONFIDENCE_THRESHOLD = 0.4
-
-
 # How many past positions we store for each object.
 # Used for motion analysis (direction, speed, etc.).
 # Example: detecting "moving left" vs "standing still"
@@ -118,6 +111,10 @@ def update_tracks(detections, frame):
             "label": label,
             "bbox": [x1, y1, x2, y2]
         })
+
+    # Keep history only for objects that are still tracked, so motion of objects
+    # that left the scene is not described and memory does not grow during long live runs
+    history = {r["id"]: history[r["id"]] for r in results}
 
     return results
 
