@@ -34,7 +34,7 @@ def parse_args():
     p.add_argument("--source", default="0", help="'picam' for the Pi camera, a number for a webcam, or a video file")
     p.add_argument("--weights", default=detector.DEFAULT_YOLO_WEIGHTS, help="YOLO weights file")
     p.add_argument("--imgsz", type=int, default=640, help="YOLO inference size (use 320 on a Raspberry Pi)")
-    p.add_argument("--conf", type=float, default=0.4, help="Minimum detection confidence")
+    p.add_argument("--conf", type=float, default=0.55, help="Minimum detection confidence")
     p.add_argument("--all-classes", action="store_true", help="Detect all 80 COCO classes")
     p.add_argument("--caption-every", type=int, default=30, help="Generate a BLIP caption every N frames")
     p.add_argument("--no-nlp", action="store_true", help="Skip BLIP captions, save video + JSON")

@@ -195,7 +195,7 @@ At 4.0s: person moving right. (2 cars, 1 person)
 | `--source` | `0` | `picam` for the Pi camera, a number for a webcam, or a video file |
 | `--weights` | `yolo26n.pt` | YOLO weights (`.pt` or an exported `_ncnn_model` folder) |
 | `--imgsz` | `640` | YOLO inference size (use `320` on a Raspberry Pi) |
-| `--conf` | `0.4` | Minimum detection confidence |
+| `--conf` | `0.55` | Minimum detection confidence |
 | `--all-classes` | off | Detect all 80 COCO classes |
 | `--caption-every` | `30` | Generate a caption every N frames |
 | `--no-nlp` | off | Skip captions; save video + JSON |

@@ -16,7 +16,7 @@ def load_model(weights = DEFAULT_YOLO_WEIGHTS):
 
 # Detect objects
 # Returns list of dicts: {label, bbox: [x1,y1,x2,y2], confidence}
-def detect_objects(frame, imgsz=640, conf=0.4, all_classes=False):
+def detect_objects(frame, imgsz=640, conf=0.55, all_classes=False):
     if model is None:
         raise RuntimeError("Call load_model() before detect_objects()")
 
