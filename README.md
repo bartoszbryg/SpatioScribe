@@ -4,7 +4,7 @@
 SpatioScribe is a computer vision pipeline that detects, tracks, and narrates objects across video frames.
 
 It combines:
-- YOLOv8 for convolutional object detection
+- YOLO (YOLO26 by default; YOLO11 and YOLOv8 also supported) for convolutional object detection
 - DeepSORT for persistent multi-object tracking
 - BLIP for vision-language scene captioning
 - Motion analysis using per-object spatiotemporal history
@@ -15,10 +15,11 @@ It combines:
 The system maintains object identity across frames and uses motion history to describe how objects move over time.
 
 ## Features
-- Detects common objects such as people, vehicles, and bicycles
+- Detects common objects such as people, vehicles, and bicycles (or all 80 COCO classes with `--all-classes` in live mode)
 - Tracks objects across frames with consistent IDs
 - Generates natural language descriptions of scenes
 - Detects movement direction (left, right, up, down)
+- Runs on recorded videos or live cameras (laptop webcam, USB camera, Raspberry Pi camera)
 
 ## Pipeline
 
@@ -28,12 +29,12 @@ The system processes the input video frame-by-frame using the following pipeline
 
 This pipeline ensures that object identity and motion are preserved across frames, enabling more meaningful scene understanding.
 
-1. **Input (main.py)**
-   - Reads video frames using OpenCV
+1. **Input (main.py / live.py)**
+   - Reads frames from a video file (`main.py`) or a live camera (`live.py`) using OpenCV
    - Controls the overall pipeline execution
 
 2. **Object Detection (detector.py)**
-   - Uses YOLOv8 to perform object detection on each frame
+   - Uses YOLO26 (or any Ultralytics YOLO weights) to perform object detection on each frame
    - Outputs bounding boxes, class labels, and confidence scores
 
 3. **Object Tracking (tracker.py)**
@@ -62,8 +63,76 @@ This pipeline ensures that object identity and motion are preserved across frame
 ## How to Run
 
 ```bash
+pip install -r requirements.txt
+```
+
+### Recorded video
+
+```bash
 python main.py --video input.mp4
 ```
+
+### Live camera
+
+```bash
+python live.py --source 0 --all-classes                  # laptop / USB webcam, full pipeline
+python live.py --source 0 --no-nlp --duration 10         # video + JSON, stop after 10 seconds
+python live.py --source picam --lite --imgsz 320         # Raspberry Pi camera, JSON only
+```
+
+Press `q` in the preview window (or `Ctrl+C`) to stop. Results go to `output/`:
+
+| Mode | Captions | `live_output.mp4` | `live_results.json` | `live_description.txt` |
+|---|---|---|---|---|
+| default | yes | yes | yes | yes |
+| `--no-nlp` | no | yes | yes | no |
+| `--lite` | no | no | yes | no |
+
+### Sending results to a remote server
+
+`live.py` can also upload its JSON records to a server that stores them in a database. Records are sent in batches from a background thread, so a slow or lost connection does not slow down detection; the local JSON is always saved as a backup.
+
+Start the server (on your laptop or a remote machine):
+
+```bash
+pip install -r server/requirements.txt
+uvicorn server.server:app --host 0.0.0.0 --port 8000
+```
+
+Then point `live.py` at it (use the server's IP address; both devices must be able to reach each other):
+
+```bash
+python live.py --source picam --lite --server http://<server-ip>:8000/detections
+```
+
+The server writes one row per detected object to `detections.db` (SQLite) with `session_id`, `device`, `frame`, `video_time`, `wall_time`, `track_id`, `label`, and box coordinates `x1, y1, x2, y2`. View the latest rows in a browser at `http://<server-ip>:8000/detections`, or interactive API docs at `http://<server-ip>:8000/docs`.
+
+### Switching YOLO versions
+
+Any Ultralytics detection weights work; they are downloaded automatically on first use:
+
+```bash
+python live.py --source 0 --weights yolo26n.pt   # default, fastest on CPU
+python live.py --source 0 --weights yolo11n.pt
+python live.py --source 0 --weights yolov8n.pt
+```
+
+### Raspberry Pi
+
+Use Raspberry Pi OS (64-bit). Use the nano model, a small inference size, and `--lite` (BLIP does not fit in a Pi's memory).
+
+```bash
+sudo apt install -y python3-picamera2 python3-venv git
+git clone https://github.com/bartoszbryg/SpatioScribe.git && cd SpatioScribe
+python3 -m venv --system-site-packages venv && source venv/bin/activate
+pip install ultralytics deep-sort-realtime "setuptools<81"
+
+# optional: export to NCNN for much faster inference on ARM CPUs
+yolo export model=yolo26n.pt format=ncnn imgsz=320
+python live.py --source picam --weights yolo26n_ncnn_model --imgsz 320 --lite --no-track --no-show
+```
+
+`--system-site-packages` lets the virtual environment use the system `picamera2` package. Without a monitor, use `--no-show` and read the JSON results, or run with `DISPLAY=:0` to show the preview on a screen attached to the Pi.
 
 
 ## Demo
@@ -109,20 +178,44 @@ At 4.0s: person moving right. (2 cars, 1 person)
 
 ## All Options
 
+### main.py (recorded video)
+
 | Flag | Default | Description |
 |---|---|---|
 | `--video` | `input.mp4` | Path to input video file |
-| `--weights` | `yolov8n.pt` | YOLO model weights |
+| `--weights` | `yolo26n.pt` | YOLO model weights |
 | `--caption-every` | `30` | Generate caption every N frames |
 | `--no-nlp` | off | Disable BLIP captioning (faster) |
 | `--output-dir` | `output/` | Directory for output files |
+
+### live.py (live camera)
+
+| Flag | Default | Description |
+|---|---|---|
+| `--source` | `0` | `picam` for the Pi camera, a number for a webcam, or a video file |
+| `--weights` | `yolo26n.pt` | YOLO weights (`.pt` or an exported `_ncnn_model` folder) |
+| `--imgsz` | `640` | YOLO inference size (use `320` on a Raspberry Pi) |
+| `--conf` | `0.4` | Minimum detection confidence |
+| `--all-classes` | off | Detect all 80 COCO classes |
+| `--caption-every` | `30` | Generate a caption every N frames |
+| `--no-nlp` | off | Skip captions; save video + JSON |
+| `--lite` | off | Skip captions and video; save JSON only (Raspberry Pi) |
+| `--no-track` | off | Skip DeepSORT (faster on a Raspberry Pi) |
+| `--no-show` | off | Run without a preview window |
+| `--duration` | `0` | Stop after N seconds (0 = run until stopped) |
+| `--output-dir` | `output/` | Directory for results |
+| `--server` | off | Also upload results to this URL (e.g. `http://<server-ip>:8000/detections`) |
+| `--device` | computer name | Device name stored with uploaded results |
 
 ---
 
 ## Files
 ```
-├── main.py          # Pipeline orchestrator and entry point
-├── detector.py      # YOLOv8 object detection
+├── main.py          # Pipeline orchestrator for recorded videos
+├── live.py          # Real-time pipeline for webcams and the Raspberry Pi camera
+├── uploader.py      # Background upload of results to a remote server
+├── server/          # FastAPI server that stores uploaded results in SQLite
+├── detector.py      # YOLO object detection
 ├── tracker.py       # DeepSORT multi-object tracking and motion history
 ├── nlp.py           # BLIP captioning and scene description generation
 ├── drawer.py        # Frame annotation and visualization
@@ -133,14 +226,15 @@ At 4.0s: person moving right. (2 cars, 1 person)
 
 ---
 ## Requirements
-- Python 3.8+
+- Python 3.10+
 - CUDA-capable GPU strongly recommended (BLIP captioning is very slow on CPU)
 Models are downloaded automatically on first run:
-- YOLOv8n (~6 MB, from Ultralytics)
+- YOLO26n (a few MB, from Ultralytics)
 - BLIP image captioning base (~990 MB, from Hugging Face)
 ---
 ## Limitations
 - Detection is limited to 8 object classes: person, car, bicycle, airplane, train, truck, motorcycle, bus
 - BLIP captioning sometimes misidentifies objects (e.g., labels a truck as a car)
 - DeepSORT can lose track of objects during fast movement or occlusion
-- No real-time processing — designed for offline video analysis
+- Real-time speed depends on hardware: smooth on a laptop, a few frames per second on a Raspberry Pi
+- BLIP captioning is too heavy for a Raspberry Pi

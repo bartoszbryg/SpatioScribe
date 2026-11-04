@@ -224,3 +224,5 @@ output/
 input.mp4
 *.mp4
 !demos/*.mp4
+*.db
+

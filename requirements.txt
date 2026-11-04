@@ -1,6 +1,7 @@
 opencv-python
 ultralytics>=8.4.0
 deep-sort-realtime
+requests
 setuptools<81
 torch
 torchvision

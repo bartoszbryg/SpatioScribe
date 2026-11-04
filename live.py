@@ -5,16 +5,19 @@ Output modes (all saved to output/):
   default    detection + tracking + BLIP captions -> annotated video, JSON, description file
   --no-nlp   skip captions                         -> annotated video, JSON
   --lite     skip captions and video (Raspberry Pi) -> JSON only
+Add --server URL to also send the JSON records to a remote server (see server/server.py).
 
 Examples
   python live.py --source 0                          # laptop / USB webcam, full pipeline
   python live.py --source 0 --no-nlp --duration 10   # video + JSON, stop after 10 seconds
   python live.py --source picam --lite --no-track    # Raspberry Pi camera, fastest settings
+  python live.py --source 0 --lite --server http://192.168.1.10:8000/detections
 
 Press q in the preview window (or Ctrl+C) to stop.
 """
 import argparse
 import os
+import socket
 import time
 
 import cv2
@@ -22,6 +25,7 @@ import cv2
 import detector
 import drawer
 import tracker
+from uploader import Uploader
 from utils import make_frame_entry, save_json, setup_logger
 
 
@@ -39,6 +43,8 @@ def parse_args():
     p.add_argument("--no-show", action="store_true", help="Do not open a preview window")
     p.add_argument("--duration", type=float, default=0, help="Stop after this many seconds (0 = no limit)")
     p.add_argument("--output-dir", default="output", help="Directory for results")
+    p.add_argument("--server", help="Also upload results to this URL, e.g. http://<server-ip>:8000/detections")
+    p.add_argument("--device", default=socket.gethostname(), help="Device name stored with uploaded results")
     return p.parse_args()
 
 
@@ -80,6 +86,7 @@ def main():
         import nlp
         nlp.load_captioner()
 
+    uploader = Uploader(args.server, args.device) if args.server else None
     cap = open_source(args.source)
     writer = None
     first_frames = []
@@ -105,7 +112,10 @@ def main():
                 tracks = [{"id": i + 1, "label": d["label"], "bbox": d["bbox"]} for i, d in enumerate(detections)]
             else:
                 tracks = tracker.update_tracks(detections, frame)
-            all_frames.append(make_frame_entry(frame_idx, timestamp, tracks))
+            entry = make_frame_entry(frame_idx, timestamp, tracks)
+            all_frames.append(entry)
+            if uploader:
+                uploader.add(entry)
 
             if nlp and frame_idx % args.caption_every == 0:
                 caption = nlp.generate_caption(frame)
@@ -145,6 +155,8 @@ def main():
         if writer:
             writer.release()
         save_json(all_frames, os.path.join(args.output_dir, "live_results.json"))
+        if uploader:
+            uploader.close()
         log.info("Saved %d frames to %s", len(all_frames), args.output_dir)
 
 
@@ -159,3 +171,4 @@ def open_writer(output_dir, frames, t_start):
 
 if __name__ == "__main__":
     main()
+
