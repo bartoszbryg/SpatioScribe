@@ -82,6 +82,8 @@ python live.py --source picam --lite --imgsz 320 --tracker bytetrack   # Raspber
 
 Press `q` in the preview window (or `Ctrl+C`) to stop. Results go to `output/`:
 
+Live cameras and streams are read in a background thread, so frame capture overlaps with detection and the newest frame is always processed; video files are read frame by frame.
+
 ### Tracking options
 
 | `--tracker` | How it matches objects | Speed | Best for |
