@@ -125,12 +125,22 @@ Use Raspberry Pi OS (64-bit). Use the nano model, a small inference size, and `-
 sudo apt install -y python3-picamera2 python3-venv git
 git clone https://github.com/bartoszbryg/SpatioScribe.git && cd SpatioScribe
 python3 -m venv --system-site-packages venv && source venv/bin/activate
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu   # CPU-only build (the default one pulls GBs of CUDA packages)
 pip install ultralytics deep-sort-realtime "setuptools<81"
 
-# optional: export to NCNN for much faster inference on ARM CPUs
+# recommended: export to NCNN for ~2.5x faster inference on ARM CPUs
 yolo export model=yolo26n.pt format=ncnn imgsz=320
-python live.py --source picam --weights yolo26n_ncnn_model --imgsz 320 --lite --no-track --no-show
+python live.py --source picam --weights yolo26n_ncnn_model --imgsz 320 --lite --no-show
 ```
+
+If `pip` fails with "No space left on device", prefix the commands with `TMPDIR=~/piptmp` (Raspberry Pi OS keeps `/tmp` in RAM).
+
+**Benchmark** (Raspberry Pi 4 Model B Rev 1.5, 2 GB RAM, Raspberry Pi OS 64-bit, Python 3.13, PyTorch 2.15 CPU, Ultralytics 8.4.202; YOLO26n at 320 px on `demos/output_video_for_input.mp4`, `--lite`, steady-state FPS after warm-up):
+
+| Model | With DeepSORT | Without tracking |
+|---|---|---|
+| PyTorch | 3.6 FPS | 3.7 FPS |
+| NCNN | 9.4 FPS | 9.4 FPS |
 
 `--system-site-packages` lets the virtual environment use the system `picamera2` package. Without a monitor, use `--no-show` and read the JSON results, or run with `DISPLAY=:0` to show the preview on a screen attached to the Pi.
 
@@ -233,8 +243,8 @@ Models are downloaded automatically on first run:
 - BLIP image captioning base (~990 MB, from Hugging Face)
 ---
 ## Limitations
-- Detection is limited to 8 object classes: person, car, bicycle, airplane, train, truck, motorcycle, bus
+- By default, detection is limited to 8 object classes (person, car, bicycle, airplane, train, truck, motorcycle, bus); use `--all-classes` in live mode for all 80 COCO classes
 - BLIP captioning sometimes misidentifies objects (e.g., labels a truck as a car)
 - DeepSORT can lose track of objects during fast movement or occlusion
-- Real-time speed depends on hardware: smooth on a laptop, a few frames per second on a Raspberry Pi
+- Real-time speed depends on hardware: smooth on a laptop, about 9 FPS on a Raspberry Pi 4 with NCNN
 - BLIP captioning is too heavy for a Raspberry Pi
