@@ -151,10 +151,17 @@ If `pip` fails with "No space left on device", prefix the commands with `TMPDIR=
 
 **Benchmark** (Raspberry Pi 4 Model B Rev 1.5, 2 GB RAM, Raspberry Pi OS 64-bit, Python 3.13, PyTorch 2.15 CPU, Ultralytics 8.4.202; YOLO26n at 320 px on `demos/output_video_for_input.mp4`, `--lite`, steady-state FPS after warm-up):
 
-| Model | With DeepSORT | Without tracking |
-|---|---|---|
-| PyTorch | 3.6 FPS | 3.7 FPS |
-| NCNN | 9.4 FPS | 9.4 FPS |
+| Detector | Tracker | Frames in 30 s (incl. warm-up) | Steady-state FPS |
+|---|---|---|---|
+| PyTorch | DeepSORT | 66 | 3.6 |
+| PyTorch | none | 96 | 3.7 |
+| NCNN | DeepSORT | 148 | 9.4 (~13 s warm-up) |
+| NCNN | ByteTrack | 246 | 9.4 |
+| NCNN | OC-SORT | 247 | 9.5 |
+| NCNN | BoT-SORT (camera-motion compensation) | 202 | 7.8 |
+| NCNN | none | 247 | 9.4 |
+
+ByteTrack and OC-SORT add no measurable cost on the Pi; BoT-SORT's camera-motion compensation costs about 22 ms per frame.
 
 `--system-site-packages` lets the virtual environment use the system `picamera2` package. Without a monitor, use `--no-show` and read the JSON results, or run with `DISPLAY=:0` to show the preview on a screen attached to the Pi.
 
