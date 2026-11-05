@@ -70,8 +70,6 @@ def reset_tracker():
 # detections: list of {label, bbox, confidence}
 # frame: picture that is required for embeddings
 def update_tracks(detections, frame):
-    global history
-
     ds_detections = []
 
     # Convert detections to DeepSORT format
@@ -94,31 +92,34 @@ def update_tracks(detections, frame):
         if not t.is_confirmed():
             continue
 
-        track_id = t.track_id
         x1, y1, x2, y2 = map(int, t.to_ltrb())
-        label = t.get_det_class()
-
-        center_x = (x1 + x2) // 2
-        center_y = (y1 + y2) // 2
-
-        if track_id not in history:
-            history[track_id] = deque(maxlen=HISTORY_LENGTH)
-
-        history[track_id].append((center_x, center_y))
-
         results.append({
-            "id": track_id,
-            "label": label,
+            "id": t.track_id,
+            "label": t.get_det_class(),
             "bbox": [x1, y1, x2, y2]
         })
 
-    # Keep history only for objects that are still tracked, so motion of objects
-    # that left the scene is not described and memory does not grow during long live runs
-    history = {r["id"]: history[r["id"]] for r in results}
-
+    record_history(results)
     return results
+
+
+# Store the latest center of each tracked object for motion analysis (used by every tracker).
+# Only objects that are still tracked are kept, so motion of objects that left the scene
+# is not described and memory does not grow during long live runs
+def record_history(tracks):
+    global history
+
+    new_history = {}
+    for obj in tracks:
+        x1, y1, x2, y2 = obj["bbox"]
+        positions = history.get(obj["id"], deque(maxlen=HISTORY_LENGTH))
+        positions.append(((x1 + x2) // 2, (y1 + y2) // 2))
+        new_history[obj["id"]] = positions
+
+    history = new_history
 
 
 # Return history (used in NLP)
 def get_history():
     return history
+

@@ -77,10 +77,22 @@ python main.py --video input.mp4
 ```bash
 python live.py --source 0 --all-classes                  # laptop / USB webcam, full pipeline
 python live.py --source 0 --no-nlp --duration 10         # video + JSON, stop after 10 seconds
-python live.py --source picam --lite --imgsz 320         # Raspberry Pi camera, JSON only
+python live.py --source picam --lite --imgsz 320 --tracker bytetrack   # Raspberry Pi camera, JSON only
 ```
 
 Press `q` in the preview window (or `Ctrl+C`) to stop. Results go to `output/`:
+
+### Tracking options
+
+| `--tracker` | How it matches objects | Speed | Best for |
+|---|---|---|---|
+| `deepsort` (default) | Motion + appearance (extra neural network per object) | Slowest, ~13 s warm-up on a Pi | Laptop, scenes where similar objects cross paths |
+| `bytetrack` | Motion only | Fastest | Raspberry Pi |
+| `ocsort` | Motion only, better with erratic motion and occlusion | Fast | Raspberry Pi, fast-moving objects |
+| `botsort` | Motion + camera-motion compensation | Fast, extra CPU for motion compensation | Moving drone camera |
+| `none` | No IDs | Fastest | Only "what is in view" |
+
+`bytetrack`, `ocsort` and `botsort` are built into Ultralytics (8.4.63+) and need the small `lap` package.
 
 | Mode | Captions | `live_output.mp4` | `live_results.json` | `live_description.txt` |
 |---|---|---|---|---|
@@ -126,11 +138,11 @@ sudo apt install -y python3-picamera2 python3-venv git
 git clone https://github.com/bartoszbryg/SpatioScribe.git && cd SpatioScribe
 python3 -m venv --system-site-packages venv && source venv/bin/activate
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu   # CPU-only build (the default one pulls GBs of CUDA packages)
-pip install ultralytics deep-sort-realtime "setuptools<81"
+pip install ultralytics deep-sort-realtime "lap>=0.5.12" "setuptools<81"
 
 # recommended: export to NCNN for ~2.5x faster inference on ARM CPUs
 yolo export model=yolo26n.pt format=ncnn imgsz=320
-python live.py --source picam --weights yolo26n_ncnn_model --imgsz 320 --lite --no-show
+python live.py --source picam --weights yolo26n_ncnn_model --imgsz 320 --lite --tracker bytetrack --no-show
 ```
 
 If `pip` fails with "No space left on device", prefix the commands with `TMPDIR=~/piptmp` (Raspberry Pi OS keeps `/tmp` in RAM).
@@ -210,7 +222,7 @@ At 4.0s: person moving right. (2 cars, 1 person)
 | `--caption-every` | `30` | Generate a caption every N frames |
 | `--no-nlp` | off | Skip captions; save video + JSON |
 | `--lite` | off | Skip captions and video; save JSON only (Raspberry Pi) |
-| `--no-track` | off | Skip DeepSORT (faster on a Raspberry Pi) |
+| `--tracker` | `deepsort` | `deepsort`, `bytetrack`, `ocsort`, `botsort`, or `none` (see Tracking options) |
 | `--no-show` | off | Run without a preview window |
 | `--duration` | `0` | Stop after N seconds (0 = run until stopped) |
 | `--output-dir` | `output/` | Directory for results |
@@ -226,7 +238,7 @@ At 4.0s: person moving right. (2 cars, 1 person)
 ├── uploader.py      # Background upload of results to a remote server
 ├── server/          # FastAPI server that stores uploaded results in SQLite
 ├── detector.py      # YOLO object detection
-├── tracker.py       # DeepSORT multi-object tracking and motion history
+├── tracker.py       # DeepSORT tracking and motion history (ByteTrack/OC-SORT/BoT-SORT run through detector.py)
 ├── nlp.py           # BLIP captioning and scene description generation
 ├── drawer.py        # Frame annotation and visualization
 ├── utils.py         # Logging, timestamp conversion, JSON utilities
@@ -245,6 +257,6 @@ Models are downloaded automatically on first run:
 ## Limitations
 - By default, detection is limited to 8 object classes (person, car, bicycle, airplane, train, truck, motorcycle, bus); use `--all-classes` in live mode for all 80 COCO classes
 - BLIP captioning sometimes misidentifies objects (e.g., labels a truck as a car)
-- DeepSORT can lose track of objects during fast movement or occlusion
+- Trackers can lose or swap IDs during fast movement or occlusion, especially at the low frame rates of a Raspberry Pi
 - Real-time speed depends on hardware: smooth on a laptop, about 9 FPS on a Raspberry Pi 4 with NCNN
 - BLIP captioning is too heavy for a Raspberry Pi

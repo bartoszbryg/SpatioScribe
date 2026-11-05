@@ -10,7 +10,7 @@ Add --server URL to also send the JSON records to a remote server (see server/se
 Examples
   python live.py --source 0                          # laptop / USB webcam, full pipeline
   python live.py --source 0 --no-nlp --duration 10   # video + JSON, stop after 10 seconds
-  python live.py --source picam --lite --no-track    # Raspberry Pi camera, fastest settings
+  python live.py --source picam --lite --tracker bytetrack   # Raspberry Pi camera, fast tracking
   python live.py --source 0 --lite --server http://192.168.1.10:8000/detections
 
 Press q in the preview window (or Ctrl+C) to stop.
@@ -39,7 +39,9 @@ def parse_args():
     p.add_argument("--caption-every", type=int, default=30, help="Generate a BLIP caption every N frames")
     p.add_argument("--no-nlp", action="store_true", help="Skip BLIP captions, save video + JSON")
     p.add_argument("--lite", action="store_true", help="Raspberry Pi mode: skip captions and video, save only JSON")
-    p.add_argument("--no-track", action="store_true", help="Skip DeepSORT tracking (faster)")
+    p.add_argument("--tracker", choices=["deepsort", "bytetrack", "ocsort", "botsort", "none"], default="deepsort",
+                   help="deepsort: appearance-based IDs; bytetrack/ocsort: much faster (good for a Raspberry Pi); "
+                        "botsort: fast and compensates for camera motion; none: no IDs")
     p.add_argument("--no-show", action="store_true", help="Do not open a preview window")
     p.add_argument("--duration", type=float, default=0, help="Stop after this many seconds (0 = no limit)")
     p.add_argument("--output-dir", default="output", help="Directory for results")
@@ -79,7 +81,7 @@ def main():
     log = setup_logger(log_file=os.path.join(args.output_dir, "live_description.txt") if use_nlp else None)
 
     detector.load_model(args.weights)
-    if not args.no_track:
+    if args.tracker == "deepsort":
         tracker.reset_tracker()
     nlp = None
     if use_nlp:
@@ -107,11 +109,15 @@ def main():
             fps = 0.9 * fps + 0.1 / max(now - t_prev, 1e-6) if frame_idx else 0.0
             t_prev = now
 
-            detections = detector.detect_objects(frame, args.imgsz, args.conf, args.all_classes)
-            if args.no_track:
-                tracks = [{"id": i + 1, "label": d["label"], "bbox": d["bbox"]} for i, d in enumerate(detections)]
+            if args.tracker in ("bytetrack", "ocsort", "botsort"):
+                tracks = detector.track_objects(frame, args.imgsz, args.conf, args.all_classes, args.tracker)
+                tracker.record_history(tracks)
             else:
-                tracks = tracker.update_tracks(detections, frame)
+                detections = detector.detect_objects(frame, args.imgsz, args.conf, args.all_classes)
+                if args.tracker == "deepsort":
+                    tracks = tracker.update_tracks(detections, frame)
+                else:
+                    tracks = [{"id": i + 1, "label": d["label"], "bbox": d["bbox"]} for i, d in enumerate(detections)]
             entry = make_frame_entry(frame_idx, timestamp, tracks)
             all_frames.append(entry)
             if uploader:
@@ -171,4 +177,5 @@ def open_writer(output_dir, frames, t_start):
 
 if __name__ == "__main__":
     main()
+
 

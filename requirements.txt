@@ -1,6 +1,7 @@
 opencv-python
-ultralytics>=8.4.0
+ultralytics>=8.4.63
 deep-sort-realtime
+lap>=0.5.12
 requests
 setuptools<81
 torch
