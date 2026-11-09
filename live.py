@@ -12,6 +12,7 @@ Examples
   python live.py --source 0 --no-nlp --duration 10   # video + JSON, stop after 10 seconds
   python live.py --source picam --lite --tracker bytetrack   # Raspberry Pi camera, fast tracking
   python live.py --source 0 --lite --server http://192.168.1.10:8000/detections
+  python live.py --source picam --lite --no-show --stream 8080   # watch in a browser at http://<pi-ip>:8080
 
 Press q in the preview window (or Ctrl+C) to stop.
 """
@@ -26,6 +27,7 @@ import cv2
 import detector
 import drawer
 import tracker
+from streamer import Streamer
 from uploader import Uploader
 from utils import make_frame_entry, save_json, setup_logger
 
@@ -44,6 +46,7 @@ def parse_args():
                    help="deepsort: appearance-based IDs; bytetrack/ocsort: much faster (good for a Raspberry Pi); "
                         "botsort: fast and compensates for camera motion; none: no IDs")
     p.add_argument("--no-show", action="store_true", help="Do not open a preview window")
+    p.add_argument("--stream", type=int, metavar="PORT", help="Serve the annotated video to a web browser on this port")
     p.add_argument("--duration", type=float, default=0, help="Stop after this many seconds (0 = no limit)")
     p.add_argument("--output-dir", default="output", help="Directory for results")
     p.add_argument("--server", help="Also upload results to this URL, e.g. http://<server-ip>:8000/detections")
@@ -123,6 +126,7 @@ def main():
         nlp.load_captioner()
 
     uploader = Uploader(args.server, args.device) if args.server else None
+    streamer = Streamer(args.stream) if args.stream else None
     cap = open_source(args.source)
     writer = None
     first_frames = []
@@ -164,7 +168,7 @@ def main():
             elif frame_idx % 30 == 0:
                 log.info("%.1fs  %.1f FPS  %s", timestamp, fps, ", ".join(t["label"] for t in tracks) or "nothing detected")
 
-            if not args.lite or not args.no_show:
+            if not args.lite or not args.no_show or streamer:
                 annotated = drawer.draw_tracks(frame, tracks)
                 cv2.putText(annotated, f"{fps:.1f} FPS", (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
 
@@ -176,6 +180,9 @@ def main():
                         writer = open_writer(args.output_dir, first_frames, t_start)
                 else:
                     writer.write(annotated)
+
+            if streamer:
+                streamer.update(annotated)
 
             if not args.no_show:
                 cv2.imshow("SpatioScribe live", annotated)
@@ -197,6 +204,8 @@ def main():
         save_json(all_frames, os.path.join(args.output_dir, "live_results.json"))
         if uploader:
             uploader.close()
+        if streamer:
+            streamer.close()
         log.info("Saved %d frames to %s", len(all_frames), args.output_dir)
 
 

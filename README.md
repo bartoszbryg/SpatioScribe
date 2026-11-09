@@ -102,6 +102,16 @@ Live cameras and streams are read in a background thread, so frame capture overl
 | `--no-nlp` | no | yes | yes | no |
 | `--lite` | no | no | yes | no |
 
+### Watching live in a browser
+
+`--stream PORT` serves the annotated video over the network, so you can watch the drone's view on a PC, tablet or phone on the same network. No monitor or display setup is needed on the Pi.
+
+```bash
+python live.py --source picam --lite --no-show --stream 8080
+```
+
+Then open `http://<pi-ip>:8080` in a browser.
+
 ### Sending results to a remote server
 
 `live.py` can also upload its JSON records to a server that stores them in a database. Records are sent in batches from a background thread, so a slow or lost connection does not slow down detection; the local JSON is always saved as a backup.
@@ -233,6 +243,7 @@ At 4.0s: person moving right. (2 cars, 1 person)
 | `--lite` | off | Skip captions and video; save JSON only (Raspberry Pi) |
 | `--tracker` | `deepsort` | `deepsort`, `bytetrack`, `ocsort`, `botsort`, or `none` (see Tracking options) |
 | `--no-show` | off | Run without a preview window |
+| `--stream` | off | Serve the annotated video to a web browser on this port |
 | `--duration` | `0` | Stop after N seconds (0 = run until stopped) |
 | `--output-dir` | `output/` | Directory for results |
 | `--server` | off | Also upload results to this URL (e.g. `http://<server-ip>:8000/detections`) |
@@ -244,6 +255,7 @@ At 4.0s: person moving right. (2 cars, 1 person)
 ```
 ├── main.py          # Pipeline orchestrator for recorded videos
 ├── live.py          # Real-time pipeline for webcams and the Raspberry Pi camera
+├── streamer.py      # Serves the annotated video to a web browser (MJPEG)
 ├── uploader.py      # Background upload of results to a remote server
 ├── server/          # FastAPI server that stores uploaded results in SQLite
 ├── detector.py      # YOLO object detection
