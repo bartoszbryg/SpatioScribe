@@ -112,6 +112,27 @@ python live.py --source picam --lite --no-show --stream 8080
 
 Then open `http://<pi-ip>:8080` in a browser.
 
+### Detection on a laptop (the Pi only sends pictures)
+
+Instead of running YOLO on the Pi, `sampler.py` takes pictures from the camera, sends one every few seconds as a JPEG (about 55 KB at 640x480), and a laptop runs the detector on them. The Pi needs no PyTorch or YOLO, only `opencv-python` and `requests`, and the laptop can use a bigger model and its GPU.
+
+On the laptop (from the repository root):
+
+```bash
+pip install -r requirements.txt fastapi uvicorn
+uvicorn server.frame_server:app --host 0.0.0.0 --port 8000
+```
+
+On the Pi:
+
+```bash
+python sampler.py --source picam --server http://<laptop-ip>:8000/frames --interval 1
+```
+
+Open `http://<laptop-ip>:8000` to see the latest annotated picture. Every picture, its annotated copy and each detection are saved on the laptop (`received_frames/` and `detections.db`). Pictures that cannot be sent are dropped rather than queued, so a weak Wi-Fi link never makes the Pi run out of memory or send old pictures.
+
+Server settings are environment variables: `SPATIOSCRIBE_WEIGHTS` (e.g. `yolo26s.pt`), `SPATIOSCRIBE_IMGSZ`, `SPATIOSCRIBE_CONF`, `SPATIOSCRIBE_LABELS` (e.g. `person` to keep only people) and `SPATIOSCRIBE_FRAMES`.
+
 ### Sending results to a remote server
 
 `live.py` can also upload its JSON records to a server that stores them in a database. Records are sent in batches from a background thread, so a slow or lost connection does not slow down detection; the local JSON is always saved as a backup.
@@ -256,8 +277,10 @@ At 4.0s: person moving right. (2 cars, 1 person)
 ├── main.py          # Pipeline orchestrator for recorded videos
 ├── live.py          # Real-time pipeline for webcams and the Raspberry Pi camera
 ├── streamer.py      # Serves the annotated video to a web browser (MJPEG)
+├── capture.py       # Camera and video sources shared by live.py and sampler.py
+├── sampler.py       # Raspberry Pi side: sends sampled pictures to a laptop
 ├── uploader.py      # Background upload of results to a remote server
-├── server/          # FastAPI server that stores uploaded results in SQLite
+├── server/          # FastAPI servers: server.py stores uploaded results, frame_server.py detects on received pictures
 ├── detector.py      # YOLO object detection
 ├── tracker.py       # DeepSORT tracking and motion history (ByteTrack/OC-SORT/BoT-SORT run through detector.py)
 ├── nlp.py           # BLIP captioning and scene description generation
