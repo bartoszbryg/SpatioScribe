@@ -226,3 +226,6 @@ input.mp4
 !demos/*.mp4
 *.db
 
+
+received_frames/
+sample_buffer/

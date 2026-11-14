@@ -129,7 +129,15 @@ On the Pi:
 python sampler.py --source picam --server http://<laptop-ip>:8000/frames --interval 1
 ```
 
-Open `http://<laptop-ip>:8000` to see the latest annotated picture. Every picture, its annotated copy and each detection are saved on the laptop (`received_frames/` and `detections.db`). Pictures that cannot be sent are dropped rather than queued, so a weak Wi-Fi link never makes the Pi run out of memory or send old pictures.
+Open `http://<laptop-ip>:8000` to see the latest annotated picture. Every picture, its annotated copy and each detection are saved on the laptop (`received_frames/<session>/` and `detections.db`).
+
+The Pi sends pictures straight from memory and writes nothing to its SD card while the laptop answers. If the laptop cannot be reached (Wi-Fi drop, laptop asleep), the Pi keeps the pictures in `sample_buffer/`, sends them in order once the laptop answers again, and deletes each file after it is sent. Buffered pictures keep their real capture time, and the laptop ignores a picture it already has. Old pictures are deleted automatically:
+
+| Flag | Default | Description |
+|---|---|---|
+| `--buffer-dir` | `sample_buffer` | Where pictures wait while the laptop is unreachable (use `/tmp/...` to keep them in RAM instead of the SD card) |
+| `--buffer-minutes` | `5` | Delete buffered pictures older than this |
+| `--buffer-mb` | `200` | Delete the oldest buffered pictures above this size |
 
 Server settings are environment variables: `SPATIOSCRIBE_WEIGHTS` (e.g. `yolo26s.pt`), `SPATIOSCRIBE_IMGSZ`, `SPATIOSCRIBE_CONF`, `SPATIOSCRIBE_LABELS` (e.g. `person` to keep only people) and `SPATIOSCRIBE_FRAMES`.
 

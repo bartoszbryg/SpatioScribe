@@ -13,6 +13,7 @@ SPATIOSCRIBE_LABELS (e.g. "person" to keep only people), SPATIOSCRIBE_FRAMES (fo
 import os
 import threading
 import time
+from contextlib import asynccontextmanager
 
 import cv2
 import numpy as np
@@ -48,15 +49,20 @@ async function tick() {
 tick();
 </script>"""
 
-app = FastAPI(title="SpatioScribe frame server")
 lock = threading.Lock()
 latest = {"jpeg": None, "info": {}}
 count = 0
 
 
-@app.on_event("startup")
-def load():
+@asynccontextmanager
+async def lifespan(app):
     detector.load_model(WEIGHTS)
+    # The first inference is slow, so run one now instead of during the first real picture
+    detector.detect_objects(np.zeros((IMGSZ, IMGSZ, 3), np.uint8), IMGSZ, CONF)
+    yield
+
+
+app = FastAPI(title="SpatioScribe frame server", lifespan=lifespan)
 
 
 def frames_db():
@@ -70,8 +76,11 @@ def frames_db():
     return db
 
 
-def process(data, session_id, device, frame_idx, t):
+def process(data, session_id, device, frame_idx, t, captured):
     global count
+    with frames_db() as db:
+        if db.execute("SELECT 1 FROM frames WHERE session_id = ? AND frame = ?", (session_id, frame_idx)).fetchone():
+            return {"objects": 0, "labels": [], "ms": 0, "duplicate": True}
     frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     if frame is None:
         raise HTTPException(400, "Body is not a valid JPEG")
@@ -92,7 +101,7 @@ def process(data, session_id, device, frame_idx, t):
     annotated = drawer.draw_tracks(frame, tracks)
     cv2.imwrite(os.path.join(folder, f"{frame_idx:06d}_det.jpg"), annotated)
 
-    wall = time.time()
+    wall = captured or time.time()
     with frames_db() as db:
         db.execute("INSERT INTO frames VALUES (?, ?, ?, ?, ?, ?, ?)",
                    (session_id, device, frame_idx, t, wall, raw_path, len(tracks)))
@@ -109,9 +118,9 @@ def process(data, session_id, device, frame_idx, t):
 
 
 @app.post("/frames")
-async def add_frame(request: Request, session_id: str, device: str, frame: int, t: float = 0.0):
+async def add_frame(request: Request, session_id: str, device: str, frame: int, t: float = 0.0, captured: float = 0.0):
     data = await request.body()
-    return await run_in_threadpool(process, data, session_id, device, frame, t)
+    return await run_in_threadpool(process, data, session_id, device, frame, t, captured)
 
 
 @app.get("/latest.jpg")
